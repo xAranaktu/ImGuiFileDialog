@@ -122,6 +122,11 @@ inline bool RadioButtonLabeled(const char* label, bool active, bool disabled)
 
 int main(int, char**)
 {
+#ifdef _MSC_VER
+	// active memory leak detector
+	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
+#endif
+
 	setlocale(LC_ALL, ".UTF8");
 
 	// Setup window
@@ -184,6 +189,46 @@ int main(int, char**)
 	// Setup Platform/Renderer bindings
 	ImGui_ImplGlfw_InitForOpenGL(window, true);
 	ImGui_ImplOpenGL3_Init(glsl_version);
+
+#ifdef USE_THUMBNAILS
+	ImGuiFileDialog::Instance()->SetCreateTextureCallback([](IGFD_Thumbnail_Info *vThumbnail_Info) -> void
+	{
+		if (vThumbnail_Info && 
+			vThumbnail_Info->isReadyToUpload && 
+			vThumbnail_Info->textureFileDatas)
+		{
+			GLuint textureId = 0;
+			glGenTextures(1, &textureId);
+			vThumbnail_Info->textureID = (void*)textureId;
+
+			glBindTexture(GL_TEXTURE_2D, textureId);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+				(GLsizei)vThumbnail_Info->textureWidth, (GLsizei)vThumbnail_Info->textureHeight, 
+				0, GL_RGBA, GL_UNSIGNED_BYTE, vThumbnail_Info->textureFileDatas);
+			glFinish();
+			glBindTexture(GL_TEXTURE_2D, 0);
+
+			delete[] vThumbnail_Info->textureFileDatas;
+			vThumbnail_Info->textureFileDatas = nullptr;
+
+			vThumbnail_Info->isReadyToUpload = false;
+			vThumbnail_Info->isReadyToDisplay = true;
+		}
+	});
+	ImGuiFileDialog::Instance()->SetDestroyTextureCallback([](IGFD_Thumbnail_Info* vThumbnail_Info)
+	{
+		if (vThumbnail_Info)
+		{
+			GLuint texID = (GLuint)vThumbnail_Info->textureID;
+			glDeleteTextures(1, &texID);
+			glFinish();
+		}
+	});
+#endif // USE_THUMBNAILS
 
 	// Load Fonts
 	// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
@@ -605,8 +650,15 @@ int main(int, char**)
 			ImGui::End();
 		}
 
-		// Rendering
+		// Cpu Zone : prepare
 		ImGui::Render();
+
+		// GPU Zone : Rendering
+		glfwMakeContextCurrent(window);
+
+#ifdef USE_THUMBNAILS
+		ImGuiFileDialog::Instance()->ManageGPUTextures();
+#endif
 		glViewport(0, 0, display_w, display_h);
 		glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
 		glClear(GL_COLOR_BUFFER_BIT);

@@ -1,12 +1,21 @@
 #pragma once
 
+#include <GLFW/glfw3.h>
+#include <CustomFont.h>
+
 // uncomment and modify defines under for customize ImGuiFileDialog
 
 //#define MAX_FILE_DIALOG_NAME_BUFFER 1024
 //#define MAX_PATH_BUFFER_SIZE 1024
 
 #define USE_THUMBNAILS
+//the thumbnail generation use the stb_image and stb_resize lib who need to define the implementation
+//btw if you already use them in your app, you can have compiler error due to "implemntation found in double"
+//so uncomment these line for prevent the creation of implementation of these libs again
+//#define DONT_DEFINE_AGAIN__STB_IMAGE_IMPLEMENTATION
+//#define DONT_DEFINE_AGAIN__STB_IMAGE_RESIZE_IMPLEMENTATION
 //#define IMGUI_RADIO_BUTTON RadioButton
+//#define DisplayMode_ThumbailsList_ImageHeight 32.0f
 //#define DisplayMode_FilesList_ButtonString "FL"
 //#define DisplayMode_FilesList_ButtonHelp "File List"
 //#define DisplayMode_ThumbailsList_ButtonString "TL"
@@ -15,8 +24,6 @@
 //#define DisplayMode_ThumbailsSmall_ButtonHelp "Small Thumbnails"
 //#define DisplayMode_ThumbailsBig_ButtonString "BT"
 //#define DisplayMode_ThumbailsBig_ButtonHelp "Big Thumbnails"
-
-#include <GLFW/glfw3.h>
 
 #define USE_EXPLORATION_BY_KEYS
 // Up key for explore to the top
@@ -40,31 +47,20 @@
 // standar button
 //#define IMGUI_BUTTON ImGui::Button
 
-
-//#define fileNameString "File Name : "
-//#define buttonResetSearchString "Reset search"
-//#define buttonDriveString "Drives"
-//#define buttonResetPathString "Reset to current directory"
-//#define buttonCreateDirString "Create Directory"
-
-/*
-Comment theses line if you not want to have customization, like icon font here
-*/
-
-#include <CustomFont.h>
-
 // locales string
 #define createDirButtonString ICON_IGFD_ADD
 #define okButtonString ICON_IGFD_OK " OK"
 #define cancelButtonString ICON_IGFD_CANCEL " Cancel"
 #define resetButtonString ICON_IGFD_RESET
 #define drivesButtonString ICON_IGFD_DRIVES
+#define editPathButtonString ICON_IGFD_EDIT
 #define searchString ICON_IGFD_SEARCH
 #define dirEntryString ICON_IGFD_FOLDER
 #define linkEntryString ICON_IGFD_LINK
 #define fileEntryString ICON_IGFD_FILE
 //#define buttonResetSearchString "Reset search"
 //#define buttonDriveString "Drives"
+//#define buttonEditPathString "Edit path\nYou can also right click on path buttons"
 //#define buttonResetPathString "Reset to current directory"
 //#define buttonCreateDirString "Create Directory"
 //#define OverWriteDialogTitleString "The file Already Exist !"
@@ -81,10 +77,10 @@ Comment theses line if you not want to have customization, like icon font here
 #define USE_CUSTOM_SORTING_ICON
 #define tableHeaderAscendingIcon ICON_IGFD_CHEVRON_UP
 #define tableHeaderDescendingIcon ICON_IGFD_CHEVRON_DOWN
-#define tableHeaderFileNameString " File name"
-#define tableHeaderFileTypeString " Type"
-#define tableHeaderFileSizeString " Size"
-#define tableHeaderFileDateString " Date"
+//#define tableHeaderFileNameString " File name"
+//#define tableHeaderFileTypeString " Type"
+//#define tableHeaderFileSizeString " Size"
+//#define tableHeaderFileDateString " Date"
 
 #define USE_BOOKMARK
 //#define bookmarkPaneWith 150.0f

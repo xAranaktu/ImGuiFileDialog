@@ -1,8 +1,8 @@
 #include "CustomFont.h"
 
-static const char FONT_ICON_BUFFER_NAME_IGFD[3410+1] =
+static const char IGFD_compressed_data_base85[3410+1] = 
     "7])#######v;i/q'/###[),##+Sl##Q6>##w#S+HiREK=e:jl&]?'o/5K[^Ihxmg#BfG<-iNE/1-2JuB0.GY>37YY#=6Bk0i_[FH$N?h#/,>>#xTup8f-d<Bv^7vPP$s%cB4pV.<[b2C"
-    "%jkc1^N(&Pmh3G4,5LsCvGCW-(K:;?N9$TeqV,-GlRl#dQS]J;J+ci_eQ.@$P>J`fdKus'alVP&=*4r.+EoZ3YqQb%)xB#v,%wo%guH['OMYY#N$H&#)7Qv$d7&:)x?w,v%=Ds%D0vhL"
+    "U3PfB^N(&Pmh3G4,5LsCvGCW-(K:;?N9$TeqV,-GlRl#dQS]J;J+ci_b62C#..C`fdKus'alVP&=*4r.+EoZ3YqQb%)xB#v,%wo%guH['OMYY#N$H&#)7Qv$d7&:)x?w,v%=Ds%D0vhL"
     "2;K;-A_@U.Qk[%#VCDX-3on34wdJe$_fl-$0h)%$pSm(%Ud68%L*Nd$nGZ(%3L$Z$3.5F%)3,F%;7Lk+7LC_&$fv-$ict9)<:Lk+)]'B#Txe+MS.<$#X*%#M%?5&#Y:>X6k*l.q3;02q"
     "tKJ5q'>b9qObm;qo/3`q(&w_q(eZ<_FZ8p&VT_/DM9ojJF'1X:5VtA#pA4L#AI(DNk]Y&#K,GdNrqJfLU)^fL:GI##.GY##2Sl##6`($#:l:$#>xL$#B.`$#&qrBOL&1kL,B8#MWL>gL"
     ",2u1#f4RqLm_f8#RjFoL'kL:#G$/nLIv-tLu9Y9#(gajL9kFrLK7q=#C)r7#Ef]vLBMX<#s=Z3#Nce8#n'Lk+_nWt$-ikEI_DD]-j2dJ(7R6V#>GZ)G;-Wc$`Fv(%fiBkF7i'(#)]$s$"
@@ -25,5 +25,5 @@ static const char FONT_ICON_BUFFER_NAME_IGFD[3410+1] =
     "'h5',b_mL,v?qr&4uG##%J/GV5J?`a'=@@M#w-tL0+xRV6,A48_fa-Zups+;(=rhZ;ktD#c9OA#axJ+*?7%s$DXI5/CKU:%eQ+,2=C587Rg;E4Z3f.*?ulW-tYqw0`EmS/si+C#[<;S&"
     "mInS%FAov#Fu[E+*L'O'GWuN'+)U40`a5k'sA;)*RIRF%Tw/Z--1=e?5;1X:;vPk&CdNjL*(KJ1/,TV-G(^S*v14gL#8,,M*YPgLaII@b+s[&#n+d3#7,(%#';P>#,Gc>#0Su>#4`1?#"
     "8lC?#<xU?#@.i?#D:%@#HF7@#k'LVCn)fQD[.C(%ea@uBoF/ZGrDFVCjZ/NB0)61Fg&cF$v:7FHJij$5bW<2Be(&ZG17O(I_DbQD6%WiF,P7/GA'kj02%jMFlq>lEki`]&D-(VA,gpKF"
-    "jb^oDw/UG$)NkVCdL^kEnw8I$1GKoDar#oDRh&##cW_(AXo&##";
+    "jb^oDw/UG$)NkVCdL^kEnw8I$1GKoDar#oDRh&##t4iD)d>*##";
 
