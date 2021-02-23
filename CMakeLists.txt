@@ -5,7 +5,12 @@ set(PROJECT ImGuiFileDialog)
 enable_language(C CXX)
 project(${PROJECT} CXX)
 
+find_package(Vulkan REQUIRED)
+
 include(cmake/3rdparty.cmake)
+
+add_definitions(-DIMGUI_IMPL_OPENGL_LOADER_VULKAN)
+add_definitions(-DIMGUI_DISABLE_OBSOLETE_FUNCTIONS)
 
 if(MSVC)
     # Ignore 4055 for glad
@@ -29,8 +34,8 @@ file(GLOB IMGUIFILEDIALOG_SOURCES
 file(GLOB IMGUIIMPL_SOURCES 
 		${CMAKE_SOURCE_DIR}/3rdparty/imgui/backends/imgui_impl_glfw.cpp
 		${CMAKE_SOURCE_DIR}/3rdparty/imgui/backends/imgui_impl_glfw.h
-		${CMAKE_SOURCE_DIR}/3rdparty/imgui/backends/imgui_impl_opengl3.cpp
-		${CMAKE_SOURCE_DIR}/3rdparty/imgui/backends/imgui_impl_opengl3.h)
+		${CMAKE_SOURCE_DIR}/imgui_impl_vulkan_user_texture.cpp
+		${CMAKE_SOURCE_DIR}/imgui_impl_vulkan_user_texture.h)
 source_group(main FILES ${MAIN_SOURCES})
 source_group(src\\Custom FILES ${CUSTOM_SOURCES})
 source_group(src\\Res FILES ${RES_SOURCES})
@@ -76,19 +81,16 @@ install(TARGETS ${PROJECT} DESTINATION ${CMAKE_INSTALL_PREFIX})
 
 include_directories(
         ${PLOG_INCLUDE_DIR}
-        ${GLM_INCLUDE_DIR}
-        ${OPENGL_INCLUDE_DIR}
         ${GLFW_INCLUDE_DIR}
-        ${GLAD_INCLUDE_DIR}
+        ${Vulkan_INCLUDE_DIRS}
         ${IMGUI_INCLUDE_DIR}
 		${CMAKE_CURRENT_SOURCE_DIR}
 		${CMAKE_CURRENT_SOURCE_DIR}/ImGuiFileDialog
 )
 
 target_link_libraries(${PROJECT} PRIVATE
-	${OPENGL_LIBRARIES}
+	${Vulkan_LIBRARIES}
 	${GLFW_LIBRARIES}
-	${GLAD_LIBRARIES}
 	${IMGUI_LIBRARIES}
 )
 

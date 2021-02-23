@@ -9,6 +9,5 @@ if (CMAKE_SYSTEM_NAME STREQUAL Linux)
   endif ()
 endif ()
 
-include(cmake/glad.cmake)
 include(cmake/glfw.cmake)
 include(cmake/imgui.cmake)

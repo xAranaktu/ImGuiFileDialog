@@ -14,3 +14,7 @@
 	path = ImGuiFileDialog
 	url = https://github.com/aiekick/ImGuiFileDialog/
 	branch = Lib_Only
+[submodule "3rdparty/stb"]
+	path = 3rdparty/stb
+	url = https://github.com/nothings/stb
+	branch = master
