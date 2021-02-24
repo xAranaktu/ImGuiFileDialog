@@ -792,7 +792,7 @@ int main(int, char**)
     VkCommandPool command_pool = wd->Frames[wd->FrameIndex].CommandPool;
 
 #ifdef USE_THUMBNAILS
-    ImGuiFileDialog::Instance()->SetCreateTextureCallback([&fileDialogAssets, &command_pool, &init_info](IGFD_Thumbnail_Info* vThumbnail_Info)
+    ImGuiFileDialog::Instance()->SetCreateThumbnailCallback([&fileDialogAssets, &command_pool, &init_info](IGFD_Thumbnail_Info* vThumbnail_Info)
         {
             if (vThumbnail_Info &&
                 vThumbnail_Info->isReadyToUpload &&
@@ -810,7 +810,8 @@ int main(int, char**)
                         vThumbnail_Info->textureWidth,
                         vThumbnail_Info->textureHeight,
                         vThumbnail_Info->textureChannels);
-                    
+                    vThumbnail_Info->userDatas = (void*)obj.get();
+
                     endSingleTimeCommands(&init_info, command_pool, cmd);
                 }
 
@@ -824,11 +825,14 @@ int main(int, char**)
                 vThumbnail_Info->isReadyToDisplay = true;
             }
         });
-    ImGuiFileDialog::Instance()->SetDestroyTextureCallback([](IGFD_Thumbnail_Info* vThumbnail_Info)
+    ImGuiFileDialog::Instance()->SetDestroyThumbnailCallback([&init_info](IGFD_Thumbnail_Info* vThumbnail_Info)
         {
             if (vThumbnail_Info)
             {
-
+                if (vThumbnail_Info->userDatas)
+                {
+                    DestroyTexture(&init_info, (VulkanImageObject*)vThumbnail_Info->userDatas);
+                }
             }
         });
 #endif // USE_THUMBNAILS
@@ -1467,7 +1471,11 @@ int main(int, char**)
             check_vk_result(err);
         }
 
-        ImGuiFileDialog::Instance()->ManageGPUTextures();
+#ifdef USE_THUMBNAILS
+        err = vkDeviceWaitIdle(g_Device);
+        check_vk_result(err);
+        ImGuiFileDialog::Instance()->ManageGPUThumbnails();
+#endif
     }
 
     err = vkDeviceWaitIdle(g_Device);
