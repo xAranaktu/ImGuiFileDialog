@@ -102,6 +102,20 @@ static void SetupVulkan(const char** extensions, uint32_t extensions_count)
         create_info.enabledExtensionCount = extensions_count + 1;
         create_info.ppEnabledExtensionNames = extensions_ext;
 
+        // validation features
+        VkValidationFeatureEnableEXT enables[] = {
+            VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT,
+            VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT,
+            VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
+            VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT,
+            VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT 
+        };
+        VkValidationFeaturesEXT features = {};
+        features.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+        features.enabledValidationFeatureCount = 1;
+        features.pEnabledValidationFeatures = enables;
+        create_info.pNext = &features;
+
         // Create Vulkan Instance
         err = vkCreateInstance(&create_info, g_Allocator, &g_Instance);
         check_vk_result(err);
@@ -402,21 +416,8 @@ static void endSingleTimeCommands(ImGui_ImplVulkan_InitInfo* v, VkCommandPool co
     vkFreeCommandBuffers(v->Device, commandPool, 1, &commandBuffer);
 }
 
-static void DestroyTexture(ImGui_ImplVulkan_InitInfo* v, VulkanImageObject image_object)
+static void DestroyTexture(ImGui_ImplVulkan_InitInfo* v, VulkanImageObject& image_object)
 {
-    VkResult err = vkDeviceWaitIdle(v->Device);
-    check_vk_result(err);
-
-    if (image_object.img)
-    {
-        vkDestroyImage(v->Device, image_object.img, v->Allocator);
-        image_object.img = VK_NULL_HANDLE;
-    }
-    if (image_object.imgMem)
-    {
-        vkFreeMemory(v->Device, image_object.imgMem, v->Allocator);
-        image_object.imgMem = VK_NULL_HANDLE;
-    }
     if (image_object.buf)
     {
         vkDestroyBuffer(v->Device, image_object.buf, v->Allocator);
@@ -427,26 +428,40 @@ static void DestroyTexture(ImGui_ImplVulkan_InitInfo* v, VulkanImageObject image
         vkFreeMemory(v->Device, image_object.bufMem, v->Allocator);
         image_object.bufMem = VK_NULL_HANDLE;
     }
-    if (image_object.sam)
-    {
-        vkDestroySampler(v->Device, image_object.sam, v->Allocator);
-        image_object.sam = VK_NULL_HANDLE;
-    }
+
     if (image_object.view)
     {
         vkDestroyImageView(v->Device, image_object.view, v->Allocator);
         image_object.view = VK_NULL_HANDLE;
     }
+    if (image_object.img)
+    {
+        vkDestroyImage(v->Device, image_object.img, v->Allocator);
+        image_object.img = VK_NULL_HANDLE;
+    }
+    if (image_object.imgMem)
+    {
+        vkFreeMemory(v->Device, image_object.imgMem, v->Allocator);
+        image_object.imgMem = VK_NULL_HANDLE;
+    }
+    if (image_object.sam)
+    {
+        vkDestroySampler(v->Device, image_object.sam, v->Allocator);
+        image_object.sam = VK_NULL_HANDLE;
+    }
+
     if (image_object.descriptor)
     {
-        ImGui_ImplVulkanH_Destroy_UserTexture_Descriptor(image_object.descriptor);
+        ImGui_ImplVulkanH_Destroy_UserTexture_Descriptor(&image_object.descriptor);
         image_object.descriptor = VK_NULL_HANDLE;
     }
 }
-static VulkanImageObject CreateTexture(ImGui_ImplVulkan_InitInfo* v, VkCommandBuffer command_buffer, const char* inFile)
+static VulkanImageObject CreateTexture(ImGui_ImplVulkan_InitInfo* v, VkCommandBuffer command_buffer, const char* inFile, VkDescriptorSet *vOriginal)
 {
     VulkanImageObject res;
 
+    printf("file to load : %s\n", inFile);
+    
     int w, h, chans;
     unsigned char* imgDatas = stbi_load(inFile, &w, &h, &chans, STBI_rgb_alpha);
     if (imgDatas && w && h)
@@ -454,7 +469,7 @@ static VulkanImageObject CreateTexture(ImGui_ImplVulkan_InitInfo* v, VkCommandBu
         VkResult err;
 
         size_t buffer_size = sizeof(char) * 4 * w * h;
-
+        
         // Create the Image:
         {
             VkImageCreateInfo info = {};
@@ -517,7 +532,7 @@ static VulkanImageObject CreateTexture(ImGui_ImplVulkan_InitInfo* v, VkCommandBu
         }
 
         // create the descriptor. will be put in ImTextureID
-        res.descriptor = ImGui_ImplVulkanH_Create_UserTexture_Descriptor(res.sam, res.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        res.descriptor = ImGui_ImplVulkanH_Create_UserTexture_Descriptor(res.sam, res.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vOriginal);
 
         // Create the Upload Buffer:
         {
@@ -551,6 +566,8 @@ static VulkanImageObject CreateTexture(ImGui_ImplVulkan_InitInfo* v, VkCommandBu
             range[0].memory = res.bufMem;
             range[0].size = buffer_size;
             err = vkFlushMappedMemoryRanges(v->Device, 1, range);
+            if (err != VK_SUCCESS)
+                printf("vkFlushMappedMemoryRanges issue");
             check_vk_result(err);
             vkUnmapMemory(v->Device, res.bufMem);
         }
@@ -853,8 +870,8 @@ int main(int, char**)
         auto cmd = beginSingleTimeCommands(&init_info, command_pool);
         if (cmd)
         {
-            userImage1 = CreateTexture(&init_info, cmd, "img1.png");
-            userImage2 = CreateTexture(&init_info, cmd, "img2.png");
+            userImage1 = CreateTexture(&init_info, cmd, "img1.png", nullptr);
+            userImage2 = CreateTexture(&init_info, cmd, "img2.png", nullptr);
             endSingleTimeCommands(&init_info, command_pool, cmd);
         }
         
@@ -1285,62 +1302,50 @@ int main(int, char**)
         {
             ImGui::Begin("User Textures !");
 
+            bool res = false;
             ImGui::BeginGroup();
             ImGui::Text("User Texture 1");
             if (userImage1.buf)
             {
-                if (ImGui::ImageButton((ImTextureID)&userImage1.descriptor, ImVec2(150, 150)))
-                {
-                    ImGuiFileDialog::Instance()->OpenModal("OpenTextureFile", "Open Texture File", "Images {.jpg,.png}", "", 1, IGFD::UserDatas("UserTexture1"));
-                }
+                res = ImGui::ImageButton((ImTextureID)&userImage1.descriptor, ImVec2(150, 150));
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("Open a Texture");
             }
             else
             {
-                auto font = ImGui::GetFont();
-                auto glyph = font->FindGlyph((ImWchar)ICON_IGFD_FOLDER);
-                if (glyph)
-                {
-                    if (ImGui::ImageButton((ImTextureID)&font->ContainerAtlas->TexID, ImVec2(150, 150), ImVec2(glyph->U0, glyph->V0), ImVec2(glyph->U1, glyph->V1)))
-                    {
-                        ImGuiFileDialog::Instance()->OpenModal("OpenTextureFile", "Open Texture File", "Images {.jpg,.png}", "", 1, IGFD::UserDatas("UserTexture1"));
-                    }
-                }
+                res = ImGui::Button("Open a\nTexture\nfile##1", ImVec2(150, 150));
             }
-
-            if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Open a Texture");
 
             ImGui::EndGroup();
 
+            if (res)
+            {
+                ImGuiFileDialog::Instance()->OpenModal("OpenTextureFile", "Open Texture File", "Images {.jpg,.png}", "", 1, IGFD::UserDatas("UserTexture1"));
+            }
+
             ImGui::SameLine();
 
+            res = false;
             ImGui::BeginGroup();
             ImGui::Text("User Texture 2");
             if (userImage2.buf)
             {
-                if (ImGui::ImageButton((ImTextureID)&userImage2.descriptor, ImVec2(150, 150)))
-                {
-                    ImGuiFileDialog::Instance()->OpenModal("OpenTextureFile", "Open Texture File", "Images {.jpg,.png}", "", 1, IGFD::UserDatas("UserTexture2"));
-                }
+                res = ImGui::ImageButton((ImTextureID)&userImage2.descriptor, ImVec2(150, 150));
+                if (ImGui::IsItemHovered())
+                    ImGui::SetTooltip("Open a Texture");
             }
             else
             {
-                auto font = ImGui::GetFont();
-                auto glyph = font->FindGlyph((ImWchar)ICON_IGFD_FOLDER);
-                if (glyph)
-                {
-                    if (ImGui::ImageButton((ImTextureID)&font->ContainerAtlas->TexID, ImVec2(150, 150), ImVec2(glyph->U0, glyph->V0), ImVec2(glyph->U1, glyph->V1)))
-                    {
-                        ImGuiFileDialog::Instance()->OpenModal("OpenTextureFile", "Open Texture File", "Images {.jpg,.png}", "", 1, IGFD::UserDatas("UserTexture2"));
-                    }
-                }
+                res = ImGui::Button("Open a\nTexture\nfile##2", ImVec2(150, 150));
             }
-
-            if (ImGui::IsItemHovered())
-                ImGui::SetTooltip("Open a Texture");
 
             ImGui::EndGroup();
             
+            if (res)
+            {
+                ImGuiFileDialog::Instance()->OpenModal("OpenTextureFile", "Open Texture File", "Images {.jpg,.png}", "", 1, IGFD::UserDatas("UserTexture2"));
+            }
+
             ImGui::End();
         }
 
@@ -1354,42 +1359,17 @@ int main(int, char**)
             ImGui::End();
         }
 
+        std::string fileToLoad;
+        std::string textureInput;
         if (ImGuiFileDialog::Instance()->Display("OpenTextureFile"))
         {
             if (ImGuiFileDialog::Instance()->IsOk())
             {
-                auto fileToLoad = ImGuiFileDialog::Instance()->GetFilePathName();
+                fileToLoad = ImGuiFileDialog::Instance()->GetFilePathName();
                 auto userDatas = ImGuiFileDialog::Instance()->GetUserDatas();
                 if (userDatas)
                 {
-                    auto key = std::string((const char*)userDatas);
-                    if (key == "UserTexture1")
-                    {
-                        DestroyTexture(&init_info, userImage1);
-                    }
-                    else if (key == "UserTexture2")
-                    {
-                        DestroyTexture(&init_info, userImage2);
-                    }
-
-                    // Use any command queue
-                    VkCommandPool command_pool = wd->Frames[wd->FrameIndex].CommandPool;
-                    auto cmd = beginSingleTimeCommands(&init_info, command_pool);
-                    if (cmd)
-                    {
-                        if (key == "UserTexture1")
-                        {
-                            userImage1 = CreateTexture(&init_info, cmd, fileToLoad.c_str());
-                        }
-                        else if (key == "UserTexture2")
-                        {
-                            userImage2 = CreateTexture(&init_info, cmd, fileToLoad.c_str());
-                        }
-                        endSingleTimeCommands(&init_info, command_pool, cmd);
-                    }
-
-                    err = vkDeviceWaitIdle(g_Device);
-                    check_vk_result(err);
+                    textureInput = std::string((const char*)userDatas);
                 }
             }
 
@@ -1418,7 +1398,47 @@ int main(int, char**)
         if (!main_is_minimized)
             FramePresent(wd);
 
+        if (!fileToLoad.empty() && !textureInput.empty())
+        {
+            auto fd = wd->Frames[wd->FrameIndex];
+            err = vkWaitForFences(g_Device, 1, &fd.Fence, VK_TRUE, UINT64_MAX);    // wait indefinitely instead of periodically checking
+            check_vk_result(err);
+
+            if (textureInput == "UserTexture1")
+            {
+                DestroyTexture(&init_info, userImage1);
+            }
+            else if (textureInput == "UserTexture2")
+            {
+                DestroyTexture(&init_info, userImage2);
+            }
+
+            err = vkDeviceWaitIdle(g_Device);
+            check_vk_result(err);
+
+            // Use any command queue
+            VkCommandPool command_pool = wd->Frames[wd->FrameIndex].CommandPool;
+            auto cmd = beginSingleTimeCommands(&init_info, command_pool);
+            if (cmd)
+            {
+                if (textureInput == "UserTexture1")
+                {
+                    userImage1 = CreateTexture(&init_info, cmd, fileToLoad.c_str(), &userImage1.descriptor);
+                }
+                else if (textureInput == "UserTexture2")
+                {
+                    userImage2 = CreateTexture(&init_info, cmd, fileToLoad.c_str(), &userImage2.descriptor);
+                }
+                endSingleTimeCommands(&init_info, command_pool, cmd);
+            }
+
+            err = vkDeviceWaitIdle(g_Device);
+            check_vk_result(err);
+        }
     }
+
+    err = vkDeviceWaitIdle(g_Device);
+    check_vk_result(err);
 
     DestroyTexture(&init_info, userImage1);
     DestroyTexture(&init_info, userImage2);

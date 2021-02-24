@@ -100,7 +100,7 @@ IMGUI_IMPL_API VkSurfaceFormatKHR   ImGui_ImplVulkanH_SelectSurfaceFormat(VkPhys
 IMGUI_IMPL_API VkPresentModeKHR     ImGui_ImplVulkanH_SelectPresentMode(VkPhysicalDevice physical_device, VkSurfaceKHR surface, const VkPresentModeKHR* request_modes, int request_modes_count);
 IMGUI_IMPL_API int                  ImGui_ImplVulkanH_GetMinImageCountFromPresentMode(VkPresentModeKHR present_mode);
 IMGUI_IMPL_API VkDescriptorSet      ImGui_ImplVulkanH_Create_UserTexture_Descriptor(VkSampler sampler, VkImageView image_view, VkImageLayout image_layout, VkDescriptorSet* vExistingDescriptorSet = nullptr);
-IMGUI_IMPL_API bool                 ImGui_ImplVulkanH_Destroy_UserTexture_Descriptor(VkDescriptorSet vVkDescriptorSet);
+IMGUI_IMPL_API bool                 ImGui_ImplVulkanH_Destroy_UserTexture_Descriptor(VkDescriptorSet *vVkDescriptorSet);
 IMGUI_IMPL_API uint32_t             ImGui_ImplVulkanH_MemoryType(VkMemoryPropertyFlags properties, uint32_t type_bits);
 
 // Helper structure to hold the data needed by one rendering frame

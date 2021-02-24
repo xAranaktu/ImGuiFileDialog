@@ -535,8 +535,8 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
                     }
                     else
                     {
-                        printf("pcmd->TextureId is NULL VkDescriptorSet\n");
-                        break;
+                        //printf("pcmd->TextureId is NULL VkDescriptorSet\n");
+                        //break;
                     }
 				}
             }
@@ -554,7 +554,7 @@ bool ImGui_ImplVulkan_CreateFontsTexture(VkCommandBuffer command_buffer)
     unsigned char* pixels;
     int width, height;
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-    size_t upload_size = width * height * 4 * sizeof(char);
+    size_t upload_size = sizeof(char) * 4 * width * height;
 
     VkResult err;
 
@@ -1659,14 +1659,16 @@ void ImGui_ImplVulkan_ShutdownPlatformInterface()
     ImGui::DestroyPlatformWindows();
 }
 
+#include <stdexcept>
+	
 VkDescriptorSet ImGui_ImplVulkanH_Create_UserTexture_Descriptor(VkSampler sampler, VkImageView image_view, VkImageLayout image_layout, VkDescriptorSet* vExistingDescriptorSet)
 {
-    VkResult err;
+    VkResult err = VK_SUCCESS;
 
     ImGui_ImplVulkan_InitInfo* v = &g_VulkanInitInfo;
-    VkDescriptorSet descriptor_set;
+    VkDescriptorSet descriptor_set = VK_NULL_HANDLE;
 
-    if (!vExistingDescriptorSet)
+    if (!vExistingDescriptorSet || (vExistingDescriptorSet && !*vExistingDescriptorSet))
     {
         // Create Descriptor Set:
         {
@@ -1684,34 +1686,43 @@ VkDescriptorSet ImGui_ImplVulkanH_Create_UserTexture_Descriptor(VkSampler sample
         descriptor_set = *vExistingDescriptorSet;
     }
 
-    // Update the Descriptor Set:
+    if (err == VK_SUCCESS && descriptor_set)
     {
-        VkDescriptorImageInfo desc_image[1] = {};
-        desc_image[0].sampler = sampler;
-        desc_image[0].imageView = image_view;
-        desc_image[0].imageLayout = image_layout;
+        // Update the Descriptor Set:
+        {
+            VkDescriptorImageInfo desc_image[1] = {};
+            desc_image[0].sampler = sampler;
+            desc_image[0].imageView = image_view;
+            desc_image[0].imageLayout = image_layout;
 
-        VkWriteDescriptorSet write_desc[1] = {};
-        write_desc[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        write_desc[0].dstSet = descriptor_set;
-        write_desc[0].descriptorCount = 1;
-        write_desc[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        write_desc[0].pImageInfo = desc_image;
+            VkWriteDescriptorSet write_desc[1] = {};
+            write_desc[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            write_desc[0].dstSet = descriptor_set;
+            write_desc[0].descriptorCount = 1;
+            write_desc[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            write_desc[0].pImageInfo = desc_image;
 
-        vkUpdateDescriptorSets(v->Device, 1, write_desc, 0, NULL);
+            vkUpdateDescriptorSets(v->Device, 1, write_desc, 0, NULL);
+        }
+    }
+    else
+    {
+        descriptor_set = VK_NULL_HANDLE;
+        printf("VkDescriptorSet is NULL");
     }
 
     return descriptor_set;
 }
 
-bool ImGui_ImplVulkanH_Destroy_UserTexture_Descriptor(VkDescriptorSet vVkDescriptorSet)
+bool ImGui_ImplVulkanH_Destroy_UserTexture_Descriptor(VkDescriptorSet *vVkDescriptorSet)
 {
     bool res = false;
 
     if (vVkDescriptorSet)
     {
         ImGui_ImplVulkan_InitInfo* v = &g_VulkanInitInfo;
-        vkFreeDescriptorSets(v->Device, v->DescriptorPool, 1, &vVkDescriptorSet);
+        vkFreeDescriptorSets(v->Device, v->DescriptorPool, 1, vVkDescriptorSet);
+        vVkDescriptorSet = VK_NULL_HANDLE;
 
         res = true;
     }
