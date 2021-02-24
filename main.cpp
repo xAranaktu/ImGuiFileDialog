@@ -416,49 +416,212 @@ static void endSingleTimeCommands(ImGui_ImplVulkan_InitInfo* v, VkCommandPool co
     vkFreeCommandBuffers(v->Device, commandPool, 1, &commandBuffer);
 }
 
-static void DestroyTexture(ImGui_ImplVulkan_InitInfo* v, VulkanImageObject& image_object)
+static void DestroyTexture(ImGui_ImplVulkan_InitInfo* v, VulkanImageObject *image_object)
 {
-    if (image_object.buf)
+    if (image_object)
     {
-        vkDestroyBuffer(v->Device, image_object.buf, v->Allocator);
-        image_object.buf = VK_NULL_HANDLE;
-    }
-    if (image_object.bufMem)
-    {
-        vkFreeMemory(v->Device, image_object.bufMem, v->Allocator);
-        image_object.bufMem = VK_NULL_HANDLE;
-    }
+        if (image_object->buf)
+        {
+            vkDestroyBuffer(v->Device, image_object->buf, v->Allocator);
+            image_object->buf = VK_NULL_HANDLE;
+        }
+        if (image_object->bufMem)
+        {
+            vkFreeMemory(v->Device, image_object->bufMem, v->Allocator);
+            image_object->bufMem = VK_NULL_HANDLE;
+        }
 
-    if (image_object.view)
-    {
-        vkDestroyImageView(v->Device, image_object.view, v->Allocator);
-        image_object.view = VK_NULL_HANDLE;
-    }
-    if (image_object.img)
-    {
-        vkDestroyImage(v->Device, image_object.img, v->Allocator);
-        image_object.img = VK_NULL_HANDLE;
-    }
-    if (image_object.imgMem)
-    {
-        vkFreeMemory(v->Device, image_object.imgMem, v->Allocator);
-        image_object.imgMem = VK_NULL_HANDLE;
-    }
-    if (image_object.sam)
-    {
-        vkDestroySampler(v->Device, image_object.sam, v->Allocator);
-        image_object.sam = VK_NULL_HANDLE;
-    }
+        if (image_object->view)
+        {
+            vkDestroyImageView(v->Device, image_object->view, v->Allocator);
+            image_object->view = VK_NULL_HANDLE;
+        }
+        if (image_object->img)
+        {
+            vkDestroyImage(v->Device, image_object->img, v->Allocator);
+            image_object->img = VK_NULL_HANDLE;
+        }
+        if (image_object->imgMem)
+        {
+            vkFreeMemory(v->Device, image_object->imgMem, v->Allocator);
+            image_object->imgMem = VK_NULL_HANDLE;
+        }
+        if (image_object->sam)
+        {
+            vkDestroySampler(v->Device, image_object->sam, v->Allocator);
+            image_object->sam = VK_NULL_HANDLE;
+        }
 
-    if (image_object.descriptor)
-    {
-        ImGui_ImplVulkanH_Destroy_UserTexture_Descriptor(&image_object.descriptor);
-        image_object.descriptor = VK_NULL_HANDLE;
+        if (image_object->descriptor)
+        {
+            ImGui_ImplVulkanH_Destroy_UserTexture_Descriptor(&image_object->descriptor);
+            image_object->descriptor = VK_NULL_HANDLE;
+        }
     }
 }
-static VulkanImageObject CreateTexture(ImGui_ImplVulkan_InitInfo* v, VkCommandBuffer command_buffer, const char* inFile, VkDescriptorSet *vOriginal)
+static std::shared_ptr<VulkanImageObject> CreateTextureFromBuffer(ImGui_ImplVulkan_InitInfo* v, VkCommandBuffer command_buffer, uint8_t *buffer, int w, int h, int n)
 {
-    VulkanImageObject res;
+    std::shared_ptr<VulkanImageObject> res = std::shared_ptr<VulkanImageObject>(new VulkanImageObject,
+        [v](VulkanImageObject* obj)
+        {
+            DestroyTexture(v, obj);
+            delete obj;
+        }
+    );
+
+    VkResult err;
+
+    size_t buffer_size = sizeof(char) * n * w * h;
+
+    // Create the Image:
+    {
+        VkImageCreateInfo info = {};
+        info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        info.imageType = VK_IMAGE_TYPE_2D;
+        info.format = VK_FORMAT_R8G8B8A8_UNORM;
+        info.extent.width = w;
+        info.extent.height = h;
+        info.extent.depth = 1;
+        info.mipLevels = 1;
+        info.arrayLayers = 1;
+        info.samples = VK_SAMPLE_COUNT_1_BIT;
+        info.tiling = VK_IMAGE_TILING_OPTIMAL;
+        info.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        err = vkCreateImage(v->Device, &info, v->Allocator, &res->img);
+        check_vk_result(err);
+        VkMemoryRequirements req;
+        vkGetImageMemoryRequirements(v->Device, res->img, &req);
+        VkMemoryAllocateInfo alloc_info = {};
+        alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        alloc_info.allocationSize = req.size;
+        alloc_info.memoryTypeIndex = ImGui_ImplVulkanH_MemoryType(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, req.memoryTypeBits);
+        err = vkAllocateMemory(v->Device, &alloc_info, v->Allocator, &res->imgMem);
+        check_vk_result(err);
+        err = vkBindImageMemory(v->Device, res->img, res->imgMem, 0);
+        check_vk_result(err);
+    }
+
+    // Create the Image Sampler :
+    {
+        VkSamplerCreateInfo info = {};
+        info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        info.magFilter = VK_FILTER_LINEAR;
+        info.minFilter = VK_FILTER_LINEAR;
+        info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        info.minLod = -1000;
+        info.maxLod = 1000;
+        info.maxAnisotropy = 1.0f;
+        VkResult err = vkCreateSampler(v->Device, &info, v->Allocator, &res->sam);
+        check_vk_result(err);
+    }
+
+    // Create the Image View:
+    {
+        VkImageViewCreateInfo info = {};
+        info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        info.image = res->img;
+        info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        info.format = VK_FORMAT_R8G8B8A8_UNORM;
+        info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        info.subresourceRange.levelCount = 1;
+        info.subresourceRange.layerCount = 1;
+        err = vkCreateImageView(v->Device, &info, v->Allocator, &res->view);
+        check_vk_result(err);
+    }
+
+    // create the descriptor. will be put in ImTextureID
+    res->descriptor = ImGui_ImplVulkanH_Create_UserTexture_Descriptor(res->sam, res->view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+    // Create the Upload Buffer:
+    {
+        VkBufferCreateInfo buffer_info = {};
+        buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        buffer_info.size = buffer_size;
+        buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+        buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        err = vkCreateBuffer(v->Device, &buffer_info, v->Allocator, &res->buf);
+        check_vk_result(err);
+        VkMemoryRequirements req;
+        vkGetBufferMemoryRequirements(v->Device, res->buf, &req);
+        VkMemoryAllocateInfo alloc_info = {};
+        alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        alloc_info.allocationSize = req.size;
+        alloc_info.memoryTypeIndex = ImGui_ImplVulkanH_MemoryType(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, req.memoryTypeBits);
+        err = vkAllocateMemory(v->Device, &alloc_info, v->Allocator, &res->bufMem);
+        check_vk_result(err);
+        err = vkBindBufferMemory(v->Device, res->buf, res->bufMem, 0);
+        check_vk_result(err);
+    }
+
+    // Upload to Buffer:
+    {
+        char* map = NULL;
+        err = vkMapMemory(v->Device, res->bufMem, 0, buffer_size, 0, (void**)(&map));
+        check_vk_result(err);
+        memcpy(map, buffer, buffer_size);
+        VkMappedMemoryRange range[1] = {};
+        range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+        range[0].memory = res->bufMem;
+        range[0].size = buffer_size;
+        err = vkFlushMappedMemoryRanges(v->Device, 1, range);
+        if (err != VK_SUCCESS)
+            printf("vkFlushMappedMemoryRanges issue");
+        check_vk_result(err);
+        vkUnmapMemory(v->Device, res->bufMem);
+    }
+
+    // Copy to Image:
+    {
+        VkImageMemoryBarrier copy_barrier[1] = {};
+        copy_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        copy_barrier[0].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        copy_barrier[0].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        copy_barrier[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        copy_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        copy_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        copy_barrier[0].image = res->img;
+        copy_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        copy_barrier[0].subresourceRange.levelCount = 1;
+        copy_barrier[0].subresourceRange.layerCount = 1;
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 1, copy_barrier);
+
+        VkBufferImageCopy region = {};
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.layerCount = 1;
+        region.imageExtent.width = w;
+        region.imageExtent.height = h;
+        region.imageExtent.depth = 1;
+        vkCmdCopyBufferToImage(command_buffer, res->buf, res->img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+        VkImageMemoryBarrier use_barrier[1] = {};
+        use_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        use_barrier[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        use_barrier[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        use_barrier[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        use_barrier[0].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        use_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        use_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        use_barrier[0].image = res->img;
+        use_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        use_barrier[0].subresourceRange.levelCount = 1;
+        use_barrier[0].subresourceRange.layerCount = 1;
+        vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, use_barrier);
+    }
+
+    err = vkDeviceWaitIdle(v->Device);
+    check_vk_result(err);
+
+    return res;
+}
+
+static std::shared_ptr<VulkanImageObject> CreateTextureFromFile(ImGui_ImplVulkan_InitInfo* v, VkCommandBuffer command_buffer, const char* inFile, VkDescriptorSet *vOriginal = nullptr)
+{
+    std::shared_ptr<VulkanImageObject> res = nullptr;
 
     printf("file to load : %s\n", inFile);
     
@@ -466,152 +629,7 @@ static VulkanImageObject CreateTexture(ImGui_ImplVulkan_InitInfo* v, VkCommandBu
     unsigned char* imgDatas = stbi_load(inFile, &w, &h, &chans, STBI_rgb_alpha);
     if (imgDatas && w && h)
     {
-        VkResult err;
-
-        size_t buffer_size = sizeof(char) * 4 * w * h;
-        
-        // Create the Image:
-        {
-            VkImageCreateInfo info = {};
-            info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-            info.imageType = VK_IMAGE_TYPE_2D;
-            info.format = VK_FORMAT_R8G8B8A8_UNORM;
-            info.extent.width = w;
-            info.extent.height = h;
-            info.extent.depth = 1;
-            info.mipLevels = 1;
-            info.arrayLayers = 1;
-            info.samples = VK_SAMPLE_COUNT_1_BIT;
-            info.tiling = VK_IMAGE_TILING_OPTIMAL;
-            info.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-            info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-            info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            err = vkCreateImage(v->Device, &info, v->Allocator, &res.img);
-            check_vk_result(err);
-            VkMemoryRequirements req;
-            vkGetImageMemoryRequirements(v->Device, res.img, &req);
-            VkMemoryAllocateInfo alloc_info = {};
-            alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-            alloc_info.allocationSize = req.size;
-            alloc_info.memoryTypeIndex = ImGui_ImplVulkanH_MemoryType(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, req.memoryTypeBits);
-            err = vkAllocateMemory(v->Device, &alloc_info, v->Allocator, &res.imgMem);
-            check_vk_result(err);
-            err = vkBindImageMemory(v->Device, res.img, res.imgMem, 0);
-            check_vk_result(err);
-        }
-
-        // Create the Image Sampler :
-        {
-            VkSamplerCreateInfo info = {};
-            info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-            info.magFilter = VK_FILTER_LINEAR;
-            info.minFilter = VK_FILTER_LINEAR;
-            info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-            info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-            info.minLod = -1000;
-            info.maxLod = 1000;
-            info.maxAnisotropy = 1.0f;
-            VkResult err = vkCreateSampler(v->Device, &info, v->Allocator, &res.sam);
-            check_vk_result(err);
-        }
-
-        // Create the Image View:
-        {
-            VkImageViewCreateInfo info = {};
-            info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-            info.image = res.img;
-            info.viewType = VK_IMAGE_VIEW_TYPE_2D;
-            info.format = VK_FORMAT_R8G8B8A8_UNORM;
-            info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            info.subresourceRange.levelCount = 1;
-            info.subresourceRange.layerCount = 1;
-            err = vkCreateImageView(v->Device, &info, v->Allocator, &res.view);
-            check_vk_result(err);
-        }
-
-        // create the descriptor. will be put in ImTextureID
-        res.descriptor = ImGui_ImplVulkanH_Create_UserTexture_Descriptor(res.sam, res.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vOriginal);
-
-        // Create the Upload Buffer:
-        {
-            VkBufferCreateInfo buffer_info = {};
-            buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-            buffer_info.size = buffer_size;
-            buffer_info.usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-            buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-            err = vkCreateBuffer(v->Device, &buffer_info, v->Allocator, &res.buf);
-            check_vk_result(err);
-            VkMemoryRequirements req;
-            vkGetBufferMemoryRequirements(v->Device, res.buf, &req);
-            VkMemoryAllocateInfo alloc_info = {};
-            alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-            alloc_info.allocationSize = req.size;
-            alloc_info.memoryTypeIndex = ImGui_ImplVulkanH_MemoryType(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, req.memoryTypeBits);
-            err = vkAllocateMemory(v->Device, &alloc_info, v->Allocator, &res.bufMem);
-            check_vk_result(err);
-            err = vkBindBufferMemory(v->Device, res.buf, res.bufMem, 0);
-            check_vk_result(err);
-        }
-
-        // Upload to Buffer:
-        {
-            char* map = NULL;
-            err = vkMapMemory(v->Device, res.bufMem, 0, buffer_size, 0, (void**)(&map));
-            check_vk_result(err);
-            memcpy(map, imgDatas, buffer_size);
-            VkMappedMemoryRange range[1] = {};
-            range[0].sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-            range[0].memory = res.bufMem;
-            range[0].size = buffer_size;
-            err = vkFlushMappedMemoryRanges(v->Device, 1, range);
-            if (err != VK_SUCCESS)
-                printf("vkFlushMappedMemoryRanges issue");
-            check_vk_result(err);
-            vkUnmapMemory(v->Device, res.bufMem);
-        }
-
-        // Copy to Image:
-        {
-            VkImageMemoryBarrier copy_barrier[1] = {};
-            copy_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            copy_barrier[0].dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            copy_barrier[0].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-            copy_barrier[0].newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            copy_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            copy_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            copy_barrier[0].image = res.img;
-            copy_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            copy_barrier[0].subresourceRange.levelCount = 1;
-            copy_barrier[0].subresourceRange.layerCount = 1;
-            vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_HOST_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, NULL, 0, NULL, 1, copy_barrier);
-
-            VkBufferImageCopy region = {};
-            region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            region.imageSubresource.layerCount = 1;
-            region.imageExtent.width = w;
-            region.imageExtent.height = h;
-            region.imageExtent.depth = 1;
-            vkCmdCopyBufferToImage(command_buffer, res.buf, res.img, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
-
-            VkImageMemoryBarrier use_barrier[1] = {};
-            use_barrier[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-            use_barrier[0].srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-            use_barrier[0].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-            use_barrier[0].oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            use_barrier[0].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-            use_barrier[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            use_barrier[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-            use_barrier[0].image = res.img;
-            use_barrier[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-            use_barrier[0].subresourceRange.levelCount = 1;
-            use_barrier[0].subresourceRange.layerCount = 1;
-            vkCmdPipelineBarrier(command_buffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0, NULL, 0, NULL, 1, use_barrier);
-        }
-
-        err = vkDeviceWaitIdle(v->Device);
-        check_vk_result(err);
+        res = CreateTextureFromBuffer(v, command_buffer, imgDatas, w, h, 4);
 
         stbi_image_free(imgDatas);
     }
@@ -737,7 +755,7 @@ int main(int, char**)
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
+    //io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
     //io.ConfigViewportsNoAutoMerge = true;
     //io.ConfigViewportsNoTaskBarIcon = true;
 
@@ -769,32 +787,39 @@ int main(int, char**)
     init_info.CheckVkResultFn = check_vk_result;
     ImGui_ImplVulkan_Init(&init_info, wd->RenderPass);
 
-    // Load Fonts
-    // - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-    // - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-    // - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-    // - Read 'docs/FONTS.md' for more instructions and details.
-    // - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-    //io.Fonts->AddFontDefault();
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-    //io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
-    //ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
-    //IM_ASSERT(font != NULL);
+    std::vector<std::shared_ptr<VulkanImageObject>> fileDialogAssets;
+
+    VkCommandPool command_pool = wd->Frames[wd->FrameIndex].CommandPool;
+
 #ifdef USE_THUMBNAILS
-    ImGuiFileDialog::Instance()->SetCreateTextureCallback([](IGFD_Thumbnail_Info* vThumbnail_Info) -> void
+    ImGuiFileDialog::Instance()->SetCreateTextureCallback([&fileDialogAssets, &command_pool, &init_info](IGFD_Thumbnail_Info* vThumbnail_Info)
         {
             if (vThumbnail_Info &&
                 vThumbnail_Info->isReadyToUpload &&
                 vThumbnail_Info->textureFileDatas)
             {
-                
+                std::shared_ptr<VulkanImageObject> obj = nullptr;
+
+                // Use any command queue
+                auto cmd = beginSingleTimeCommands(&init_info, command_pool);
+                if (cmd)
+                {
+                    obj = CreateTextureFromBuffer(
+                        &init_info, cmd,
+                        vThumbnail_Info->textureFileDatas,
+                        vThumbnail_Info->textureWidth,
+                        vThumbnail_Info->textureHeight,
+                        vThumbnail_Info->textureChannels);
+                    
+                    endSingleTimeCommands(&init_info, command_pool, cmd);
+                }
+
+                fileDialogAssets.push_back(obj);
+
+                vThumbnail_Info->textureID = (ImTextureID)&obj->descriptor;
 
                 delete[] vThumbnail_Info->textureFileDatas;
                 vThumbnail_Info->textureFileDatas = nullptr;
-
                 vThumbnail_Info->isReadyToUpload = false;
                 vThumbnail_Info->isReadyToDisplay = true;
             }
@@ -803,7 +828,7 @@ int main(int, char**)
         {
             if (vThumbnail_Info)
             {
-                
+
             }
         });
 #endif // USE_THUMBNAILS
@@ -860,8 +885,8 @@ int main(int, char**)
     }
 
     // user textures
-    VulkanImageObject userImage1;
-    VulkanImageObject userImage2;
+    std::shared_ptr<VulkanImageObject> userImage1 = nullptr;
+    std::shared_ptr<VulkanImageObject> userImage2 = nullptr;
     {
         // Use any command queue
         VkCommandPool command_pool = wd->Frames[wd->FrameIndex].CommandPool;
@@ -870,8 +895,8 @@ int main(int, char**)
         auto cmd = beginSingleTimeCommands(&init_info, command_pool);
         if (cmd)
         {
-            userImage1 = CreateTexture(&init_info, cmd, "img1.png", nullptr);
-            userImage2 = CreateTexture(&init_info, cmd, "img2.png", nullptr);
+            userImage1 = CreateTextureFromFile(&init_info, cmd, "img1.png", nullptr);
+            userImage2 = CreateTextureFromFile(&init_info, cmd, "img2.png", nullptr);
             endSingleTimeCommands(&init_info, command_pool, cmd);
         }
         
@@ -1305,9 +1330,9 @@ int main(int, char**)
             bool res = false;
             ImGui::BeginGroup();
             ImGui::Text("User Texture 1");
-            if (userImage1.buf)
+            if (userImage1.use_count() && userImage1->buf)
             {
-                res = ImGui::ImageButton((ImTextureID)&userImage1.descriptor, ImVec2(150, 150));
+                res = ImGui::ImageButton((ImTextureID)&userImage1->descriptor, ImVec2(150, 150));
                 if (ImGui::IsItemHovered())
                     ImGui::SetTooltip("Open a Texture");
             }
@@ -1328,9 +1353,9 @@ int main(int, char**)
             res = false;
             ImGui::BeginGroup();
             ImGui::Text("User Texture 2");
-            if (userImage2.buf)
+            if (userImage2.use_count() && userImage2->buf)
             {
-                res = ImGui::ImageButton((ImTextureID)&userImage2.descriptor, ImVec2(150, 150));
+                res = ImGui::ImageButton((ImTextureID)&userImage2->descriptor, ImVec2(150, 150));
                 if (ImGui::IsItemHovered())
                     ImGui::SetTooltip("Open a Texture");
             }
@@ -1406,11 +1431,17 @@ int main(int, char**)
 
             if (textureInput == "UserTexture1")
             {
-                DestroyTexture(&init_info, userImage1);
+                if (userImage1.use_count())
+                {
+                    DestroyTexture(&init_info, userImage1.get());
+                }
             }
             else if (textureInput == "UserTexture2")
             {
-                DestroyTexture(&init_info, userImage2);
+                if (userImage2.use_count() && userImage2->buf)
+                {
+                    DestroyTexture(&init_info, userImage2.get());
+                }
             }
 
             err = vkDeviceWaitIdle(g_Device);
@@ -1423,11 +1454,11 @@ int main(int, char**)
             {
                 if (textureInput == "UserTexture1")
                 {
-                    userImage1 = CreateTexture(&init_info, cmd, fileToLoad.c_str(), &userImage1.descriptor);
+                    userImage1 = CreateTextureFromFile(&init_info, cmd, fileToLoad.c_str());
                 }
                 else if (textureInput == "UserTexture2")
                 {
-                    userImage2 = CreateTexture(&init_info, cmd, fileToLoad.c_str(), &userImage2.descriptor);
+                    userImage2 = CreateTextureFromFile(&init_info, cmd, fileToLoad.c_str());
                 }
                 endSingleTimeCommands(&init_info, command_pool, cmd);
             }
@@ -1435,13 +1466,16 @@ int main(int, char**)
             err = vkDeviceWaitIdle(g_Device);
             check_vk_result(err);
         }
+
+        ImGuiFileDialog::Instance()->ManageGPUTextures();
     }
 
     err = vkDeviceWaitIdle(g_Device);
     check_vk_result(err);
 
-    DestroyTexture(&init_info, userImage1);
-    DestroyTexture(&init_info, userImage2);
+    userImage1.reset();
+    userImage2.reset();
+    fileDialogAssets.clear();
 
     // Cleanup
     err = vkDeviceWaitIdle(g_Device);

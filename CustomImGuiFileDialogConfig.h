@@ -8,22 +8,20 @@
 //#define MAX_FILE_DIALOG_NAME_BUFFER 1024
 //#define MAX_PATH_BUFFER_SIZE 1024
 
-//#define USE_THUMBNAILS
+#define USE_THUMBNAILS
 //the thumbnail generation use the stb_image and stb_resize lib who need to define the implementation
 //btw if you already use them in your app, you can have compiler error due to "implemntation found in double"
 //so uncomment these line for prevent the creation of implementation of these libs again
-//#define DONT_DEFINE_AGAIN__STB_IMAGE_IMPLEMENTATION
+#define DONT_DEFINE_AGAIN__STB_IMAGE_IMPLEMENTATION
 //#define DONT_DEFINE_AGAIN__STB_IMAGE_RESIZE_IMPLEMENTATION
 //#define IMGUI_RADIO_BUTTON RadioButton
 //#define DisplayMode_ThumbailsList_ImageHeight 32.0f
-//#define DisplayMode_FilesList_ButtonString "FL"
+#define DisplayMode_FilesList_ButtonString ICON_IGFD_FILE_LIST
 //#define DisplayMode_FilesList_ButtonHelp "File List"
-//#define DisplayMode_ThumbailsList_ButtonString "TL"
+#define DisplayMode_ThumbailsList_ButtonString ICON_IGFD_FILE_LIST_THUMBNAILS
 //#define DisplayMode_ThumbailsList_ButtonHelp "Thumbnails List"
-//#define DisplayMode_ThumbailsSmall_ButtonString "ST"
-//#define DisplayMode_ThumbailsSmall_ButtonHelp "Small Thumbnails"
-//#define DisplayMode_ThumbailsBig_ButtonString "BT"
-//#define DisplayMode_ThumbailsBig_ButtonHelp "Big Thumbnails"
+#define DisplayMode_ThumbailsGrid_ButtonString ICON_IGFD_FILE_GRID_THUMBNAILS
+//#define DisplayMode_ThumbailsGrid_ButtonHelp "Thumbnails Grid"
 
 #define USE_EXPLORATION_BY_KEYS
 // Up key for explore to the top
@@ -44,7 +42,7 @@
 //#define FILTER_COMBO_WIDTH 120.0f
 // button widget use for compose path
 //#define IMGUI_PATH_BUTTON ImGui::Button
-// standar button
+// standard button
 //#define IMGUI_BUTTON ImGui::Button
 
 // locales string

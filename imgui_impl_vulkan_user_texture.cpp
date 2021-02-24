@@ -535,7 +535,7 @@ void ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, VkCommandBuffer comm
                     }
                     else
                     {
-                        //printf("pcmd->TextureId is NULL VkDescriptorSet\n");
+                        printf("pcmd->TextureId is NULL VkDescriptorSet\n");
                         //break;
                     }
 				}
