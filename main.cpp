@@ -496,7 +496,7 @@ static std::shared_ptr<VulkanImageObject> CreateTextureFromBuffer(ImGui_ImplVulk
         VkMemoryAllocateInfo alloc_info = {};
         alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         alloc_info.allocationSize = req.size;
-        alloc_info.memoryTypeIndex = ImGui_ImplVulkanH_MemoryType(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, req.memoryTypeBits);
+        alloc_info.memoryTypeIndex = ImGui_ImplVulkan_MemoryType(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, req.memoryTypeBits);
         err = vkAllocateMemory(v->Device, &alloc_info, v->Allocator, &res->imgMem);
         check_vk_result(err);
         err = vkBindImageMemory(v->Device, res->img, res->imgMem, 0);
@@ -551,7 +551,7 @@ static std::shared_ptr<VulkanImageObject> CreateTextureFromBuffer(ImGui_ImplVulk
         VkMemoryAllocateInfo alloc_info = {};
         alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
         alloc_info.allocationSize = req.size;
-        alloc_info.memoryTypeIndex = ImGui_ImplVulkanH_MemoryType(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, req.memoryTypeBits);
+        alloc_info.memoryTypeIndex = ImGui_ImplVulkan_MemoryType(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, req.memoryTypeBits);
         err = vkAllocateMemory(v->Device, &alloc_info, v->Allocator, &res->bufMem);
         check_vk_result(err);
         err = vkBindBufferMemory(v->Device, res->buf, res->bufMem, 0);
@@ -754,7 +754,7 @@ int main(int, char**)
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
-    io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
+    //io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
     //io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
     //io.ConfigViewportsNoAutoMerge = true;
     //io.ConfigViewportsNoTaskBarIcon = true;
@@ -764,12 +764,12 @@ int main(int, char**)
     //ImGui::StyleColorsClassic();
 
     // When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
-    ImGuiStyle& style = ImGui::GetStyle();
-    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-    {
-        style.WindowRounding = 0.0f;
-        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-    }
+    //ImGuiStyle& style = ImGui::GetStyle();
+    //if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    //{
+    //    style.WindowRounding = 0.0f;
+    //    style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+    //}
 
     // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForVulkan(window, true);
@@ -1038,12 +1038,12 @@ int main(int, char**)
                 ImGui::PopItemWidth();
 #endif
                 static bool _UseWindowContraints = true;
-                if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-                {
-                    ImGui::Separator();
-                    ImGui::Checkbox("Use file dialog constraint", &_UseWindowContraints);
-                    ImGui::Text("Constraints is used here for define min/max file dialog size");
-                }
+                //if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+                //{
+                //    ImGui::Separator();
+                //    ImGui::Checkbox("Use file dialog constraint", &_UseWindowContraints);
+                //    ImGui::Text("Constraints is used here for define min/max file dialog size");
+                //}
                 ImGui::Separator();
                 static bool standardDialogMode = false;
                 ImGui::Text("Open Mode : ");
@@ -1161,13 +1161,13 @@ int main(int, char**)
 
                 if (_UseWindowContraints)
                 {
-                    if (!(io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable))
-                    {
-                        int width, height;
-                        glfwGetFramebufferSize(window, &width, &height);
-                        maxSize = ImVec2((float)width, (float)height) * 0.7f;
-                        minSize = maxSize * 0.25f;
-                    }
+                    //if (!(io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable))
+                    //{
+                    //    int width, height;
+                    //    glfwGetFramebufferSize(window, &width, &height);
+                    //    maxSize = ImVec2((float)width, (float)height) * 0.7f;
+                    //    minSize = maxSize * 0.25f;
+                    //}
                 }
 
                 // you can define your flags and min/max window size (theses three settings ae defined by default :
@@ -1417,11 +1417,11 @@ int main(int, char**)
             FrameRender(wd, main_draw_data);
 
         // Update and Render additional Platform Windows
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-        {
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-        }
+        //if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        //{
+        //    ImGui::UpdatePlatformWindows();
+        //    ImGui::RenderPlatformWindowsDefault();
+        //}
 
         // Present Main Platform Window
         if (!main_is_minimized)

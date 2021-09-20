@@ -3,11 +3,10 @@
 
 // Implemented features:
 //  [X] Renderer: Support for large meshes (64k+ vertices) with 16-bit indices.
-// Missing features:
-//  [ ] Platform: Multi-viewport / platform windows.
-//  [ ] Renderer: User texture binding. Changes of ImTextureID aren't supported by this backend! See https://github.com/ocornut/imgui/pull/914
+//  [X] Renderer: User texture binding. Changes of ImTextureID aren't supported by this backend! See https://github.com/ocornut/imgui/pull/914
 
-// You can copy and use unmodified imgui_impl_* files in your project. See examples/ folder for examples of using this.
+// You can use unmodified imgui_impl_* files in your project. See examples/ folder for examples of using this. 
+// Prefer including the entire imgui/ repository into your project (either as a copy or as a submodule), and only build the backends you need.
 // If you are new to Dear ImGui, read documentation from the docs/ folder + read the top of imgui.cpp.
 // Read online: https://github.com/ocornut/imgui/tree/master/docs
 
@@ -57,7 +56,7 @@ struct ImGui_ImplVulkan_InitInfo
     uint32_t                        MinImageCount;          // >= 2
     uint32_t                        ImageCount;             // >= MinImageCount
     VkSampleCountFlagBits           MSAASamples;            // >= VK_SAMPLE_COUNT_1_BIT
-    const VkAllocationCallbacks*    Allocator;
+    const VkAllocationCallbacks* Allocator;
     void                            (*CheckVkResultFn)(VkResult err);
 };
 
@@ -69,6 +68,7 @@ IMGUI_IMPL_API void     ImGui_ImplVulkan_RenderDrawData(ImDrawData* draw_data, V
 IMGUI_IMPL_API bool     ImGui_ImplVulkan_CreateFontsTexture(VkCommandBuffer command_buffer);
 IMGUI_IMPL_API void     ImGui_ImplVulkan_DestroyFontUploadObjects();
 IMGUI_IMPL_API void     ImGui_ImplVulkan_SetMinImageCount(uint32_t min_image_count); // To override MinImageCount after initialization (e.g. if swap chain is recreated)
+IMGUI_IMPL_API uint32_t ImGui_ImplVulkan_MemoryType(VkMemoryPropertyFlags properties, uint32_t type_bits);
 
 // Optional: load Vulkan functions with a custom function loader
 // This is only useful with IMGUI_IMPL_VULKAN_NO_PROTOTYPES / VK_NO_PROTOTYPES
@@ -81,8 +81,8 @@ IMGUI_IMPL_API bool     ImGui_ImplVulkan_LoadFunctions(PFN_vkVoidFunction(*loade
 // You probably do NOT need to use or care about those functions.
 // Those functions only exist because:
 //   1) they facilitate the readability and maintenance of the multiple main.cpp examples files.
-//   2) the multi-viewport / platform window implementation needs them internally.
-// Generally we avoid exposing any kind of superfluous high-level helpers in the bindings,
+//   2) the upcoming multi-viewport feature will need them internally.
+// Generally we avoid exposing any kind of superfluous high-level helpers in the backends,
 // but it is too much code to duplicate everywhere so we exceptionally expose them.
 //
 // Your engine/app will likely _already_ have code to setup all that stuff (swap chain, render pass, frame buffers, etc.).
@@ -100,8 +100,7 @@ IMGUI_IMPL_API VkSurfaceFormatKHR   ImGui_ImplVulkanH_SelectSurfaceFormat(VkPhys
 IMGUI_IMPL_API VkPresentModeKHR     ImGui_ImplVulkanH_SelectPresentMode(VkPhysicalDevice physical_device, VkSurfaceKHR surface, const VkPresentModeKHR* request_modes, int request_modes_count);
 IMGUI_IMPL_API int                  ImGui_ImplVulkanH_GetMinImageCountFromPresentMode(VkPresentModeKHR present_mode);
 IMGUI_IMPL_API VkDescriptorSet      ImGui_ImplVulkanH_Create_UserTexture_Descriptor(VkSampler sampler, VkImageView image_view, VkImageLayout image_layout, VkDescriptorSet* vExistingDescriptorSet = nullptr);
-IMGUI_IMPL_API bool                 ImGui_ImplVulkanH_Destroy_UserTexture_Descriptor(VkDescriptorSet *vVkDescriptorSet);
-IMGUI_IMPL_API uint32_t             ImGui_ImplVulkanH_MemoryType(VkMemoryPropertyFlags properties, uint32_t type_bits);
+IMGUI_IMPL_API bool                 ImGui_ImplVulkanH_Destroy_UserTexture_Descriptor(VkDescriptorSet* vVkDescriptorSet);
 
 // Helper structure to hold the data needed by one rendering frame
 // (Used by example's main.cpp. Used by multi-viewport features. Probably NOT used by your own engine/app.)
@@ -139,8 +138,8 @@ struct ImGui_ImplVulkanH_Window
     uint32_t            FrameIndex;             // Current frame being rendered to (0 <= FrameIndex < FrameInFlightCount)
     uint32_t            ImageCount;             // Number of simultaneous in-flight frames (returned by vkGetSwapchainImagesKHR, usually derived from min_image_count)
     uint32_t            SemaphoreIndex;         // Current set of swapchain wait semaphores we're using (needs to be distinct from per frame data)
-    ImGui_ImplVulkanH_Frame*            Frames;
-    ImGui_ImplVulkanH_FrameSemaphores*  FrameSemaphores;
+    ImGui_ImplVulkanH_Frame* Frames;
+    ImGui_ImplVulkanH_FrameSemaphores* FrameSemaphores;
 
     ImGui_ImplVulkanH_Window()
     {
