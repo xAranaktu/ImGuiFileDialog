@@ -27,6 +27,9 @@ SOFTWARE.
 
 #include "ImGuiFileDialog.h"
 
+#pragma warning (disable: 4996)     // 'This function or variable may be unsafe': strcpy, strdup, sprintf, vsnprintf, sscanf, fopen
+
+
 #ifdef __cplusplus
 
 #include <cfloat>
