@@ -3873,30 +3873,14 @@ namespace IGFD
 		{
 			if (vInfos->fileType == 'd')
 			{
-				// nav system, selectebale cause open directory or select directory
-				if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_NavEnableKeyboard)
+				if (ImGui::IsMouseDoubleClicked(0)) // 0 -> left mouse button double click
 				{
-					if (fdi.puDLGDirectoryMode) // directory chooser
-					{
-						fdi.SelectFileName(prFileDialogInternal, vInfos);
-					}
-					else
-					{
-						fdi.puPathClicked = fdi.SelectDirectory(vInfos);
-					}
+					fdi.puPathClicked = fdi.SelectDirectory(vInfos);
 				}
-				else // no nav system => classic behavior
+				else if (fdi.puDLGDirectoryMode) // directory chooser
 				{
-					if (ImGui::IsMouseDoubleClicked(0)) // 0 -> left mouse button double click
-					{
-						fdi.puPathClicked = fdi.SelectDirectory(vInfos);
-					}
-					else if (fdi.puDLGDirectoryMode) // directory chooser
-					{
-						fdi.SelectFileName(prFileDialogInternal, vInfos);
-					}
+					fdi.SelectFileName(prFileDialogInternal, vInfos);
 				}
-
 				return true; // needToBreakTheloop
 			}
 			else
